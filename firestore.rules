@@ -1,0 +1,128 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users/{userId}
+    // Fields: email, displayName, photoURL
+    //
+    // Collection: transactions/{transactionId}
+    // Fields: userId, type, amount, category, description, date
+    //
+    // Collection: categories/{categoryId}
+    // Fields: userId, name, icon, color
+    //
+    // Collection: goals/{goalId}
+    // Fields: userId, title, targetValue, currentValue, deadline
+    //
+    // Collection: fixed_bills/{billId}
+    // Fields: userId, name, value, dueDate, recurrent, status, category
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isNewDocOwner() {
+      return isAuthenticated() && request.auth.uid == request.resource.data.userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "pedrohatake755@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    // Validation Helpers
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isPositive(value) {
+      return value is number && value >= 0;
+    }
+
+    function isValidDate(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    // Domain Validators
+    function isValidTransaction(data) {
+      return data.keys().hasAll(['userId', 'type', 'amount', 'category', 'date']) &&
+             data.userId is string &&
+             data.type in ['income', 'expense'] &&
+             isPositive(data.amount) &&
+             data.category is string &&
+             data.category.size() < 100 &&
+             isValidDate(data.date);
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email']) &&
+             isValidEmail(data.email) &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 100)) &&
+             (!('role' in data) || (data.role is string));
+    }
+
+    function isValidGoal(data) {
+      return data.keys().hasAll(['userId', 'title', 'targetValue', 'currentValue']) &&
+             data.userId is string &&
+             data.title is string && data.title.size() < 100 &&
+             isPositive(data.targetValue) &&
+             isPositive(data.currentValue);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (!('role' in request.resource.data) || isAdmin());
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin());
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isNewDocOwner() && isValidTransaction(request.resource.data);
+      allow update: if isDocOwner() && isNewDocOwner() && isValidTransaction(request.resource.data);
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isNewDocOwner();
+      allow update: if isDocOwner() && isNewDocOwner();
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /goals/{goalId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isNewDocOwner() && isValidGoal(request.resource.data);
+      allow update: if isDocOwner() && isNewDocOwner() && isValidGoal(request.resource.data);
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /fixed_bills/{billId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isNewDocOwner();
+      allow update: if isDocOwner() && isNewDocOwner();
+      allow delete: if isDocOwner() || isAdmin();
+    }
+  }
+}

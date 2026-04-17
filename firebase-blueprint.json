@@ -1,0 +1,91 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Store basic user information",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string", "format": "uri" }
+      },
+      "required": ["email"]
+    },
+    "Transaction": {
+      "title": "Financial Transaction",
+      "description": "An entry or expense recorded by the user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Reference to the user profile" },
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "amount": { "type": "number", "description": "The monetary value" },
+        "category": { "type": "string", "description": "Category name or ID" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date-time", "description": "ISO 8601 timestamp" }
+      },
+      "required": ["userId", "type", "amount", "category", "date"]
+    },
+    "Category": {
+      "title": "Transaction Category",
+      "description": "A custom or default category for transactions",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "icon": { "type": "string", "description": "Lucide icon name" },
+        "color": { "type": "string", "description": "Hex color code" }
+      },
+      "required": ["name"]
+    },
+    "Goal": {
+      "title": "Financial Goal",
+      "description": "A savings goal for the user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "targetValue": { "type": "number" },
+        "currentValue": { "type": "number" },
+        "deadline": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "targetValue", "currentValue"]
+    },
+    "FixedBill": {
+      "title": "Recurring Bill",
+      "description": "A recurring expense or bill",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "value": { "type": "number" },
+        "dueDate": { "type": "number", "description": "Day of the month (1-31)" },
+        "recurrent": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["paid", "pending"] },
+        "category": { "type": "string" }
+      },
+      "required": ["userId", "name", "value", "dueDate"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Individual user data"
+    },
+    "transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "All financial transactions"
+    },
+    "categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Custom categories per user"
+    },
+    "goals/{goalId}": {
+      "schema": "Goal",
+      "description": "User savings goals"
+    },
+    "fixed_bills/{billId}": {
+      "schema": "FixedBill",
+      "description": "Recurring bills and expenses"
+    }
+  }
+}
